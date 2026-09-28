@@ -27,7 +27,7 @@ namespace IO.Ably.Realtime
     }
 
     /// <summary>
-    /// A class representing the connection associated with an PubSubRealtimeClient instance.
+    /// A class representing the connection associated with a PubSubRealtimeClient instance.
     /// The Connection object exposes the lifecycle and parameters of the realtime connection.
     /// </summary>
     public sealed class Connection : EventEmitter<ConnectionEvent, ConnectionStateChange>
