@@ -902,7 +902,7 @@ namespace Ably.PubSub.Tests
         }
 
         /// <summary>
-        /// Helper methods that return an PubSubHttpClient or PubSubRealtimeClient instance and a list of AblyRequest that
+        /// Helper methods that return a PubSubHttpClient or PubSubRealtimeClient instance and a list of AblyRequest that
         /// will contain all the HTTP requests the client attempts
         /// </summary>
         private class Rsa4Helper
