@@ -39,6 +39,17 @@ namespace IO.Ably.Realtime
                 return Task.FromResult(false);
             }
 
+            // RTL5k - an ATTACHED received while the channel is DETACHING or DETACHED must not
+            // re-attach a channel the application has detached. It is answered with a new DETACH and
+            // leaves the channel untouched otherwise: in particular the RTL15b channelSerial below,
+            // which RTL15b2 cleared on entering DETACHED and the next ATTACH would carry (RTL4c1).
+            if (protocolMessage.Action == ProtocolMessage.MessageAction.Attached &&
+                (channel.State == ChannelState.Detaching || channel.State == ChannelState.Detached))
+            {
+                channel.DetachForUnexpectedAttached();
+                return TaskConstants.BooleanTrue;
+            }
+
             // RTL15b
             if (protocolMessage.ChannelSerial.IsNotEmpty() &&
                 (protocolMessage.Action == ProtocolMessage.MessageAction.Message ||
@@ -56,14 +67,6 @@ namespace IO.Ably.Realtime
                     channel.SetChannelState(ChannelState.Failed, protocolMessage);
                     break;
                 case ProtocolMessage.MessageAction.Attached:
-                    // RTL5k - an ATTACHED received while the channel is DETACHING or DETACHED must not
-                    // re-attach a channel the application has detached. Send a new DETACH instead.
-                    if (channel.State == ChannelState.Detaching || channel.State == ChannelState.Detached)
-                    {
-                        channel.SendDetachForUnexpectedAttached();
-                        break;
-                    }
-
                     channel.Properties.AttachSerial = protocolMessage.ChannelSerial; // RTL15a
 
                     if (protocolMessage.Flags.HasValue)
