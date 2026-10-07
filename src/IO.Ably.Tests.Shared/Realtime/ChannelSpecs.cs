@@ -1062,6 +1062,47 @@ namespace IO.Ably.Tests.Realtime
 
             [Fact]
             [Trait("spec", "RTL5k")]
+            [Trait("spec", "RTN19b")]
+            public async Task WhenAttachedReceivedWhileDetaching_AndTransportIsReconnected_ShouldSendDetachAgainOnTheNewTransport()
+            {
+                var (client, channel) = await GetClientAndChannel();
+                SetChannelState(channel, ChannelState.Attached);
+
+                channel.Detach();
+                await client.ProcessCommands();
+
+                client.FakeProtocolMessageReceived(new ProtocolMessage(ProtocolMessage.MessageAction.Attached)
+                {
+                    Channel = channel.Name
+                });
+                await client.ProcessCommands();
+
+                var firstTransport = LastCreatedTransport;
+                firstTransport.SentMessages.Count(x => x.Original.Action == ProtocolMessage.MessageAction.Detach).Should().Be(2);
+                channel.State.Should().Be(ChannelState.Detaching);
+
+                // From CONNECTED, DISCONNECTED retries immediately on a new transport.
+                client.Workflow.QueueCommand(SetDisconnectedStateCommand.Create(null));
+                await client.WaitForState(ConnectionState.Connecting);
+                channel.State.Should().Be(ChannelState.Detaching);
+
+                client.FakeProtocolMessageReceived(ConnectedProtocolMessage);
+                await client.WaitForState(ConnectionState.Connected);
+                await client.ProcessCommands();
+
+                LastCreatedTransport.Should().NotBeSameAs(firstTransport);
+                LastCreatedTransport.SentMessages.Count(x => x.Original.Action == ProtocolMessage.MessageAction.Detach).Should().Be(1);
+                channel.State.Should().Be(ChannelState.Detaching);
+
+                await ReceiveDetachedMessage(client);
+                await client.ProcessCommands();
+
+                channel.State.Should().Be(ChannelState.Detached);
+                CountSentMessagesOnAllTransports(ProtocolMessage.MessageAction.Attach).Should().Be(0);
+            }
+
+            [Fact]
+            [Trait("spec", "RTL5k")]
             public async Task WhenAttachedReceivedWhileDetachingAndDisconnected_ShouldNotSendDetachUntilConnected()
             {
                 var (client, channel) = await GetClientAndChannel();
